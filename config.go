@@ -48,6 +48,7 @@ import (
 	"fmt"
 	"github.com/pelletier/go-toml"
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -58,6 +59,7 @@ import (
 
 type ConfigSet struct {
 	*flag.FlagSet
+	loadedTree *toml.TomlTree
 }
 
 // BoolVar defines a bool config with a given name and default value for a ConfigSet.
@@ -159,7 +161,7 @@ func (c *ConfigSet) Duration(name string, value time.Duration) *time.Duration {
 // Parse takes a path to a TOML file and loads it. This must be called after
 // all the config flags in the ConfigSet have been defined but before the flags
 // are accessed by the program.
-func (c *ConfigSet) Parse(path string) error {
+func (c *ConfigSet) Parse(path string, returnIfError bool) error {
 	configBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
@@ -171,7 +173,9 @@ func (c *ConfigSet) Parse(path string) error {
 		return errors.New(errorString)
 	}
 
-	err = c.loadTomlTree(tomlTree, []string{})
+	c.loadedTree = tomlTree
+
+	err = c.loadTomlTree(tomlTree, []string{}, returnIfError)
 	if err != nil {
 		return err
 	}
@@ -181,20 +185,29 @@ func (c *ConfigSet) Parse(path string) error {
 
 // loadTomlTree recursively loads a TomlTree into this ConfigSet's config
 // variables.
-func (c *ConfigSet) loadTomlTree(tree *toml.TomlTree, path []string) error {
+func (c *ConfigSet) loadTomlTree(tree *toml.TomlTree, path []string, returnIfError bool) error {
 	for _, key := range tree.Keys() {
 		fullPath := append(path, key)
 		value := tree.Get(key)
 		if subtree, isTree := value.(*toml.TomlTree); isTree {
-			err := c.loadTomlTree(subtree, fullPath)
+			err := c.loadTomlTree(subtree, fullPath, returnIfError)
 			if err != nil {
-				return err
+				if returnIfError {
+					return err
+				} else {
+					log.Println(err)
+				}
+
 			}
 		} else {
 			fullPath := strings.Join(append(path, key), ".")
 			err := c.Set(fullPath, fmt.Sprintf("%v", value))
 			if err != nil {
-				return buildLoadError(fullPath, err)
+				if returnIfError {
+					return buildLoadError(fullPath, err)
+				} else {
+					log.Println(err)
+				}
 			}
 		}
 	}
@@ -229,6 +242,7 @@ const (
 func NewConfigSet(name string, errorHandling flag.ErrorHandling) *ConfigSet {
 	return &ConfigSet{
 		flag.NewFlagSet(name, errorHandling),
+		nil,
 	}
 }
 
@@ -329,6 +343,18 @@ func Duration(name string, value time.Duration) *time.Duration {
 // Parse takes a path to a TOML file and loads it into the global ConfigSet.
 // This must be called after all config flags have been defined but before the
 // flags are accessed by the program.
-func Parse(path string) error {
-	return globalConfig.Parse(path)
+func Parse(path string, stopIfError ...bool) error {
+	returnIfError := false
+	if len(stopIfError) > 0 {
+		returnIfError = stopIfError[0]
+	}
+	return globalConfig.Parse(path, returnIfError)
+}
+
+func Load(stopIfError ...bool) error {
+	returnIfError := false
+	if len(stopIfError) > 0 {
+		returnIfError = stopIfError[0]
+	}
+	return globalConfig.loadTomlTree(globalConfig.loadedTree, []string{}, returnIfError)
 }
