@@ -48,7 +48,6 @@ import (
 	"fmt"
 	"github.com/pelletier/go-toml"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"strings"
