@@ -194,10 +194,7 @@ func (c *ConfigSet) loadTomlTree(tree *toml.TomlTree, path []string, returnIfErr
 			if err != nil {
 				if returnIfError {
 					return err
-				} else {
-					log.Println(err)
 				}
-
 			}
 		} else {
 			fullPath := strings.Join(append(path, key), ".")
@@ -205,8 +202,6 @@ func (c *ConfigSet) loadTomlTree(tree *toml.TomlTree, path []string, returnIfErr
 			if err != nil {
 				if returnIfError {
 					return buildLoadError(fullPath, err)
-				} else {
-					log.Println(err)
 				}
 			}
 		}
