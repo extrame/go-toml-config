@@ -191,7 +191,7 @@ func (c *ConfigSet) loadTomlTree(tree *toml.TomlTree, path []string, returnIfErr
 		if subtree, isTree := value.(*toml.TomlTree); isTree {
 			err := c.loadTomlTree(subtree, fullPath, returnIfError)
 			if err != nil {
-				if returnIfError {
+				if err = buildLoadError("", err, returnIfError); err != nil {
 					return err
 				}
 			}
@@ -199,8 +199,8 @@ func (c *ConfigSet) loadTomlTree(tree *toml.TomlTree, path []string, returnIfErr
 			fullPath := strings.Join(append(path, key), ".")
 			err := c.Set(fullPath, fmt.Sprintf("%v", value))
 			if err != nil {
-				if returnIfError {
-					return buildLoadError(fullPath, err)
+				if err = buildLoadError(fullPath, err, returnIfError); err != nil {
+					return err
 				}
 			}
 		}
@@ -210,12 +210,15 @@ func (c *ConfigSet) loadTomlTree(tree *toml.TomlTree, path []string, returnIfErr
 
 // buildLoadError takes an error from flag.FlagSet#Set and makes it a bit more
 // readable, if it recognizes the format.
-func buildLoadError(path string, err error) error {
+func buildLoadError(path string, err error, returnMissingError bool) error {
 	missingFlag := regexp.MustCompile(`^no such flag -([^\s]+)`)
 	invalidSyntax := regexp.MustCompile(`^.+ parsing "(.+)": invalid syntax$`)
 	errorString := err.Error()
 
 	if missingFlag.MatchString(errorString) {
+		if !returnMissingError {
+			return nil
+		}
 		errorString = missingFlag.ReplaceAllString(errorString, "$1 is not a valid config setting")
 	} else if invalidSyntax.MatchString(errorString) {
 		errorString = "The value for " + path + " is invalid"
