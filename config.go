@@ -58,7 +58,7 @@ import (
 
 type ConfigSet struct {
 	*flag.FlagSet
-	loadedTree *toml.TomlTree
+	loadedTree *toml.Tree
 }
 
 // BoolVar defines a bool config with a given name and default value for a ConfigSet.
@@ -184,11 +184,11 @@ func (c *ConfigSet) Parse(path string, returnIfError bool) error {
 
 // loadTomlTree recursively loads a TomlTree into this ConfigSet's config
 // variables.
-func (c *ConfigSet) loadTomlTree(tree *toml.TomlTree, path []string, returnIfError bool) error {
+func (c *ConfigSet) loadTomlTree(tree *toml.Tree, path []string, returnIfError bool) error {
 	for _, key := range tree.Keys() {
 		fullPath := append(path, key)
 		value := tree.Get(key)
-		if subtree, isTree := value.(*toml.TomlTree); isTree {
+		if subtree, isTree := value.(*toml.Tree); isTree {
 			err := c.loadTomlTree(subtree, fullPath, returnIfError)
 			if err != nil {
 				if err = buildLoadError("", err, returnIfError); err != nil {
